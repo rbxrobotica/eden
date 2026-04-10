@@ -1,3 +1,20 @@
+/**
+ * catalog.ts — Registro de produtos RBX
+ *
+ * O catálogo é a fonte de verdade de todos os produtos provisionados pelo Eden.
+ * Ele vive em rbx-infra/catalog/products.yml e é versionado junto com a infra.
+ *
+ * Cada entrada registra nome, tipo, fase de maturidade, namespace, domínios,
+ * repo GitHub e data de criação. Ferramentas externas (rbx-catalog-api,
+ * rbx-catalog-console) consomem esse arquivo para exibir o portfólio de produtos.
+ *
+ * Fases de maturidade:
+ *   seed             — recém criado, em desenvolvimento inicial
+ *   structuring      — roadmap definido, primeiros usuários internos
+ *   expansion        — crescimento ativo, dependências externas surgindo
+ *   institutionalized — produto estável com SLA e processos estabelecidos
+ */
+
 import { readFileSync, writeFileSync } from "fs";
 import { parse, stringify } from "yaml";
 import { join } from "path";
@@ -21,6 +38,7 @@ interface Catalog {
   products: Product[];
 }
 
+/** Deserializa o catálogo e retorna a lista de produtos. */
 export function readCatalog(infraPath: string): Product[] {
   const path = join(infraPath, "catalog/products.yml");
   const raw = readFileSync(path, "utf-8");
@@ -28,6 +46,10 @@ export function readCatalog(infraPath: string): Product[] {
   return catalog.products;
 }
 
+/**
+ * Insere ou atualiza um produto no catálogo (upsert por nome).
+ * Preserva o cabeçalho do arquivo para manter legibilidade do YAML.
+ */
 export function addProduct(infraPath: string, product: Product): void {
   const path = join(infraPath, "catalog/products.yml");
   const raw = readFileSync(path, "utf-8");

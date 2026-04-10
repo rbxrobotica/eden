@@ -1,3 +1,29 @@
+/**
+ * scaffolders/fullstack.ts — Scaffolder para produtos fullstack
+ *
+ * Gera manifests Kubernetes inline (sem templates externos) para produtos que
+ * precisam de frontend + backend + Redis em um único namespace.
+ *
+ * Por que inline e não templates como api.ts/web-static.ts?
+ * Um fullstack tem três componentes com nomes derivados (${name}-frontend,
+ * ${name}-backend, ${name}-redis) e dois domínios diferentes. Parametrizar
+ * isso via templates separados adicionaria complexidade sem ganho real —
+ * as strings TypeScript são mais legíveis e mais fáceis de manter.
+ *
+ * Arquivos gerados em rbx-infra/apps/prod/<name>/:
+ *   namespace.yml           — Namespace compartilhado pelos três componentes
+ *   middleware-https.yml    — Redirect HTTP→HTTPS para o namespace
+ *   frontend-deploy.yml     — Deployment do frontend (porta 3000)
+ *   frontend-svc.yml        — Service ClusterIP do frontend
+ *   frontend-ingress.yml    — Ingress com TLS para o domínio frontend
+ *   backend-deploy.yml      — Deployment do backend (porta 8000, /healthz probe)
+ *   backend-svc.yml         — Service ClusterIP do backend (porta 8080)
+ *   backend-ingress.yml     — Ingress com TLS para o domínio backend
+ *   redis-deploy.yml        — Redis 7 Alpine (single instance, sem persistência)
+ *   redis-svc.yml           — Service ClusterIP do Redis (porta 6379)
+ *   kustomization.yml       — Lista todos os 10 recursos
+ */
+
 import { writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
 

@@ -1,3 +1,39 @@
+/**
+ * scaffolders/agent.ts — Scaffolder para agentes AI (rbx-harness)
+ *
+ * Gera a estrutura completa de um agente RBX: manifests Kubernetes E o
+ * manifest.yaml de governança per o schema rbx-harness v0.1.
+ *
+ * É o scaffolder mais rico do Eden porque agentes têm uma camada de contrato
+ * além da infraestrutura: o manifest.yaml declara capabilities, limitations,
+ * governance triggers e resource budgets antes mesmo de uma linha de código
+ * do agente existir.
+ *
+ * Integração com rbx-harness (github.com/rbxrobotica/rbx-harness):
+ *   - Schema: https://rbxsystems.com/schemas/rbx-harness/v0.1/manifest
+ *   - O manifesto gerado começa com status: draft — o agente não recebe
+ *     requisições até que um humano preencha os campos TODO e mude para active
+ *   - Fields marcados TODO são propositais: capabilities, limitations e description
+ *     são específicos do agente e não podem ser inferidos pelo Eden
+ *
+ * Arquivos gerados em rbx-infra/apps/prod/<name>/:
+ *   manifest.yaml              — Contrato do agente (rbx-harness spec)
+ *   schemas/
+ *     request.schema.json      — Schema do payload de entrada (template)
+ *     response.schema.json     — Schema do payload de saída (template)
+ *   namespace.yml              — Namespace K8s
+ *   middleware-https.yml       — Redirect HTTP→HTTPS
+ *   deploy.yml                 — Deployment (porta 8080, /healthz probe, envFrom secret)
+ *   svc.yml                    — Service ClusterIP
+ *   ingress.yml                — Ingress com TLS (gerado apenas se --domain for fornecido)
+ *   kustomization.yml          — Lista recursos (ingress.yml incluído condicionalmente)
+ *
+ * Diferença chave em relação aos outros scaffolders:
+ *   Ingress é OPCIONAL. A maioria dos agentes RBX são internos — comunicam-se
+ *   via Thalamus e não precisam de exposição HTTP pública. O Eden pergunta
+ *   explicitamente antes de gerar o ingress.
+ */
+
 import { writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
 

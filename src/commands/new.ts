@@ -1,3 +1,26 @@
+/**
+ * commands/new.ts — Comando `eden new`
+ *
+ * Orquestra o provisionamento completo de um novo produto RBX. É o único lugar
+ * onde todos os módulos do Eden se encontram em sequência.
+ *
+ * Fluxo para tipos com K8s (api, web-static, fullstack, agent):
+ *   1. Coleta inputs (interativo com @clack/prompts ou via flags CLI)
+ *   2. Chama o scaffolder do tipo para gerar manifests em rbx-infra/apps/prod/<name>/
+ *   3. Gera o ArgoCD Application em rbx-infra/gitops/app-of-apps/<name>.yml
+ *   4. Adiciona o namespace ao AppProject em rbx-infra/gitops/projects/rbx-applications.yaml
+ *   5. Registra o produto em rbx-infra/catalog/products.yml
+ *   6. Commit e push no rbx-infra (GitOps — ArgoCD detecta a mudança)
+ *   7. kubectl apply do ArgoApp (sync imediato sem esperar o polling do ArgoCD)
+ *
+ * Fluxo para tipo cli:
+ *   1. Coleta nome e repo
+ *   2. Registra no catalog (sem K8s, sem ArgoApp)
+ *
+ * Tipo agent tem inputs adicionais: product (qual produto RBX) e role (papel do agente
+ * per rbx-harness spec). O scaffolder de agent gera também o manifest.yaml rbx-harness.
+ */
+
 import * as p from "@clack/prompts";
 import { loadConfig } from "../config.ts";
 import { addProduct } from "../catalog.ts";

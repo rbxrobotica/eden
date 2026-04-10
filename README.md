@@ -2,120 +2,161 @@
 
 **RBX Internal Developer Platform — CLI**
 
-Eden automates provisioning of new products on the RBX Kubernetes infrastructure using GitOps. It scaffolds Kubernetes manifests, registers the product in the RBX catalog, commits to `rbx-infra`, and applies the ArgoCD Application in one command.
+Eden é a CLI que provisiona novos produtos na infraestrutura RBX em um único comando. Ela gera manifests Kubernetes, registra o produto no catálogo, faz commit no `rbx-infra` e aplica o ArgoCD Application — tudo automaticamente.
 
 ---
 
-## Install
+## Instalação
 
 ```bash
-# From source (requires Bun)
 git clone https://github.com/rbxrobotica/eden
 cd eden
 bun install
-bun run build        # produces ./eden binary
+bun run build        # gera o binário ./eden
 ```
 
 ---
 
-## Usage
+## Uso
 
 ```bash
-# Interactive
+# Interativo — Eden faz as perguntas
 eden new
 
-# Non-interactive
-eden new my-api       --type=api       --domain=my-api.rbx.ia.br
+# Não-interativo
+eden new my-api       --type=api        --domain=my-api.rbx.ia.br
 eden new my-front     --type=web-static --domain=my-front.rbx.ia.br
 eden new my-app       --type=fullstack  --domain=my-app.rbx.ia.br --backend-domain=api.my-app.rbx.ia.br
-eden new my-agent     --type=agent     --product=strategos --role=analyst
+eden new my-agent     --type=agent      --product=strategos --role=analyst
 eden new my-tool      --type=cli
 
-# Dry run (generates output without committing or applying)
+# Dry run — gera os arquivos sem commitar nem aplicar
 eden new my-api --type=api --domain=my-api.rbx.ia.br --dry-run
 
-# List registered products
+# Listar produtos registrados
 eden list
 ```
 
-### Product types
+---
 
-| Type | Description |
+## Tipos de produto
+
+| Tipo | Descrição |
 |---|---|
-| `api` | Backend API / service with HTTP ingress |
-| `web-static` | Static frontend (Next.js, etc.) |
-| `fullstack` | Frontend + backend + Redis |
-| `agent` | AI agent — scaffolds rbx-harness manifest + K8s deployment |
-| `cli` | CLI tool — registers in catalog, no K8s deployment |
+| `api` | API REST/gRPC com ingress HTTP. Usa templates do `rbx-infra/apps/base/api/` |
+| `web-static` | Frontend estático (Next.js, Astro, SPA). Usa templates de `apps/base/web-static/` |
+| `fullstack` | Frontend + backend + Redis em um namespace. Manifests gerados inline |
+| `agent` | Agente AI com manifest rbx-harness + K8s. Ver seção abaixo |
+| `cli` | Ferramenta CLI — registrada no catálogo sem deployment K8s |
 
-### Agent-specific flags
+---
 
-| Flag | Values | Description |
+## Tipo `agent` e integração com rbx-harness
+
+Ao criar um produto do tipo `agent`, o Eden gera o manifest de governança no formato do [rbx-harness](https://github.com/rbxrobotica/rbx-harness):
+
+```bash
+eden new meu-agente --type=agent --product=strategos --role=analyst
+```
+
+Flags específicos do tipo agent:
+
+| Flag | Valores | Descrição |
 |---|---|---|
-| `--product` | `robson` `strategos` `thalamus` `truthmetal` `eden` `platform` | Which RBX product the agent belongs to |
-| `--role` | `executor` `advisor` `analyst` `signal-generator` `router` `orchestrator` | Agent role per rbx-harness spec |
+| `--product` | `robson` `strategos` `thalamus` `truthmetal` `eden` `platform` | Produto RBX ao qual o agente pertence |
+| `--role` | `executor` `advisor` `analyst` `signal-generator` `router` `orchestrator` | Papel do agente conforme rbx-harness spec |
+
+Estrutura gerada em `rbx-infra/apps/prod/meu-agente/`:
+
+```
+manifest.yaml              ← contrato rbx-harness (preencha os campos TODO antes de status: active)
+schemas/
+  request.schema.json      ← schema do payload de entrada
+  response.schema.json     ← schema do payload de saída
+namespace.yml
+middleware-https.yml
+deploy.yml
+svc.yml
+ingress.yml                ← apenas se --domain for fornecido
+kustomization.yml
+```
+
+O manifesto começa com `status: draft`. O agente não recebe requisições até que o desenvolvedor preencha os campos marcados `TODO` (capabilities, limitations, description) e altere para `status: active`.
 
 ---
 
-## What `eden new --type=agent` generates
+## O que acontece quando `eden new` roda
 
 ```
-apps/prod/<name>/
-├── manifest.yaml            ← rbx-harness agent manifest (fill in the TODOs)
-├── schemas/
-│   ├── request.schema.json  ← request payload schema template
-│   └── response.schema.json ← response payload schema template
-├── namespace.yml
-├── middleware-https.yml
-├── deploy.yml
-├── svc.yml
-├── ingress.yml              ← only if --domain is provided
-└── kustomization.yml
+1. Coleta de inputs (prompts ou flags)
+       │
+2. Scaffolding dos manifests
+   └── rbx-infra/apps/prod/<name>/   ← K8s + manifest.yaml (agent)
+       │
+3. ArgoCD Application
+   └── rbx-infra/gitops/app-of-apps/<name>.yml
+       │
+4. AppProject — registra o namespace
+   └── rbx-infra/gitops/projects/rbx-applications.yaml
+       │
+5. Catálogo — registra o produto
+   └── rbx-infra/catalog/products.yml
+       │
+6. git add + commit + push → rbx-infra/main
+       │
+7. kubectl apply → ArgoApp aplicado imediatamente no cluster
+       │
+8. ArgoCD sincroniza apps/prod/<name>/ → produto ativo em ~30s
 ```
-
-The `manifest.yaml` follows the [rbx-harness spec](https://github.com/rbxrobotica/rbx-harness). After scaffolding, fill in the `TODO` fields before setting `status: active`.
 
 ---
 
-## Configuration
+## Configuração
 
-Eden reads `~/.eden.yml` for defaults:
+Eden lê `~/.eden.yml`. Se o arquivo não existir, usa defaults:
 
 ```yaml
-infra_path: ~/apps/rbx-infra
-github_org: rbxrobotica
-default_registry: ghcr.io/rbxrobotica
-kubeconfig: ~/.kube/config-rbx
+# ~/.eden.yml
+infra_path: ~/apps/rbx-infra          # caminho local do repositório rbx-infra
+github_org: rbxrobotica               # organização GitHub para URLs de repo
+default_registry: ghcr.io/rbxrobotica # registry padrão para imagens Docker
+kubeconfig: ~/.kube/config-rbx        # kubeconfig do cluster RBX
 ```
 
 ---
 
-## How it works
+## Ciclo de vida dos produtos
 
-```
-eden new <name> --type=<type>
-  │
-  ├── scaffoldManifests()    → writes to rbx-infra/apps/prod/<name>/
-  ├── generateArgoApp()      → writes rbx-infra/apps/argocd/<name>.yml
-  ├── addDestination()       → updates rbx-infra/appproject.yaml
-  ├── addProduct()           → updates rbx-infra/catalog/products.yml
-  ├── git add + commit + push → pushes to rbx-infra (triggers ArgoCD sync)
-  └── kubectl apply          → creates ArgoCD Application immediately
-```
+O catálogo rastreia a maturidade de cada produto:
 
----
+| Fase | Significado |
+|---|---|
+| `seed` | Recém criado — infra provisionada, produto em desenvolvimento |
+| `structuring` | Roadmap definido, primeiros usuários internos |
+| `expansion` | Crescimento ativo, dependências externas |
+| `institutionalized` | Produto estável com SLA e processos de manutenção |
 
-## Integration with rbx-harness
-
-Eden uses the [rbx-harness](https://github.com/rbxrobotica/rbx-harness) manifest schema when scaffolding agent products. The generated `manifest.yaml` is a valid starting point for any RBX agent:
-
-- Schema: `https://rbxsystems.com/schemas/rbx-harness/v0.1/manifest`
-- All required fields are pre-filled with sensible defaults
-- `TODO` markers indicate fields that require human input
-- `status: draft` — the agent will not receive requests until set to `active`
+Todo produto criado pelo Eden começa em fase `seed`.
 
 ---
 
-## License
+## Documentação interna
 
-Open source. See [LICENSE](LICENSE).
+- [ARCHITECTURE.md](ARCHITECTURE.md) — Detalhes de cada módulo, decisões de design, fluxo completo
+
+---
+
+## Relação com outros projetos RBX
+
+| Projeto | Relação |
+|---|---|
+| [rbx-infra](https://github.com/rbxrobotica/rbx-infra) | Repositório GitOps onde Eden escreve todos os manifests |
+| [rbx-harness](https://github.com/rbxrobotica/rbx-harness) | Define o schema do manifest.yaml gerado para agentes |
+| [rbx-catalog-api](https://github.com/rbxrobotica/rbx-catalog-api) | Consome o catalog/products.yml que Eden mantém |
+| [rbx-catalog-console](https://github.com/rbxrobotica/rbx-catalog-console) | UI do catálogo que exibe os produtos registrados |
+
+---
+
+## Licença
+
+Open source.

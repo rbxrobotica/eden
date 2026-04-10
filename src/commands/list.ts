@@ -1,3 +1,14 @@
+/**
+ * commands/list.ts — Comando `eden list`
+ *
+ * Lê rbx-infra/catalog/products.yml e exibe uma tabela formatada com todos
+ * os produtos registrados: nome, tipo, fase de maturidade, namespace e domínios.
+ *
+ * É uma operação somente-leitura — não modifica nenhum arquivo nem acessa o cluster.
+ * Útil para ter uma visão rápida do portfólio de produtos RBX sem precisar abrir
+ * o rbx-catalog-console.
+ */
+
 import { loadConfig } from "../config.ts";
 import { readCatalog } from "../catalog.ts";
 

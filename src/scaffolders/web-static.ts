@@ -1,3 +1,17 @@
+/**
+ * scaffolders/web-static.ts — Scaffolder para frontends estáticos
+ *
+ * Instancia manifests Kubernetes para um produto do tipo `web-static` (Next.js,
+ * Astro, SPA, etc.) a partir dos templates base do rbx-infra (apps/base/web-static/).
+ *
+ * Segue o mesmo padrão de template do api.ts. Os templates base de web-static
+ * diferem dos de api principalmente no containerPort (3000 vs 8000) e nos
+ * resource requests (frontends tipicamente usam menos CPU/memória que APIs).
+ *
+ * Arquivos gerados em rbx-infra/apps/prod/<name>/:
+ *   namespace.yml, middleware-https.yml, deploy.yml, svc.yml, ingress.yml, kustomization.yml
+ */
+
 import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
 
