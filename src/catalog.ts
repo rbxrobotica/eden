@@ -1,12 +1,14 @@
 /**
  * catalog.ts — Registro de produtos RBX
  *
- * O catálogo é a fonte de verdade de todos os produtos provisionados pelo Eden.
- * Ele vive em rbx-infra/catalog/products.yml e é versionado junto com a infra.
+ * O catálogo legado de produtos vive em rbx-infra/catalog/products.yml e é
+ * versionado junto com a infra.
+ * Esse arquivo preserva metadados de portfólio que ainda não existem no
+ * catálogo runtime: fase de maturidade, domínios, repositório e descrição.
  *
  * Cada entrada registra nome, tipo, fase de maturidade, namespace, domínios,
- * repo GitHub e data de criação. Ferramentas externas (rbx-catalog-api,
- * rbx-catalog-console) consomem esse arquivo para exibir o portfólio de produtos.
+ * repo GitHub e data de criação. O rbx-catalog-registry é atualizado em paralelo
+ * por runtime-catalog.ts para servir rbx-catalog-api e rbx-catalog-console.
  *
  * Fases de maturidade:
  *   seed             — recém criado, em desenvolvimento inicial

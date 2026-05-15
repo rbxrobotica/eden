@@ -29,6 +29,7 @@ switch (cmd) {
       image: flags["image"] as string,
       product: flags["product"] as string,
       role: flags["role"] as string,
+      catalogDomain: flags["catalog-domain"] as string,
       dryRun: flags["dry-run"] === true,
     });
     break;
@@ -43,7 +44,7 @@ switch (cmd) {
 Eden — RBX Internal Developer Platform
 
 Usage:
-  eden new [name] [--type=<type>] [--domain=<domain>] [--image=<image>] [--dry-run]
+  eden new [name] [--type=<type>] [--domain=<domain>] [--catalog-domain=<domain>] [--image=<image>] [--dry-run]
   eden new [name] --type=agent [--product=<product>] [--role=<role>] [--domain=<domain>]
   eden list
 

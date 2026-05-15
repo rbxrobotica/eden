@@ -1,10 +1,15 @@
 # ARCHITECTURE — Eden
 
+**Guia central Eden + Catalog:** `rbx-infra/docs/EDEN-CATALOG-IMPLEMENTATION-GUIDE.md`
+
+Este documento explica a arquitetura interna do Eden. O guia central é a fonte
+canônica para o fluxo cross-repo, ownership, CI/CD e operação em produção.
+
 ---
 
 ## Visão geral
 
-Eden é uma CLI TypeScript/Bun que age como orquestrador de bootstrapping. Ela não gerencia infraestrutura diretamente — ela **gera artefatos GitOps** e os aplica via ArgoCD. O estado vive no `rbx-infra`; Eden é o automatizador que produz esse estado.
+Eden é uma CLI TypeScript/Bun que age como orquestrador de bootstrapping. Ela não gerencia infraestrutura diretamente — ela **gera artefatos GitOps** e os aplica via ArgoCD. O estado operacional vive no `rbx-infra`; a visibilidade runtime vive no `rbx-catalog-registry`. Eden é o automatizador que produz esses estados.
 
 ```
 Developer
@@ -16,7 +21,8 @@ Developer
     ├─── generateArgoApp()  → gera rbx-infra/gitops/app-of-apps/<name>.yml
     ├─── addDestination()   → atualiza rbx-infra/gitops/projects/rbx-applications.yaml
     ├─── addProduct()       → atualiza rbx-infra/catalog/products.yml
-    ├─── git push           → rbx-infra main → ArgoCD detecta mudança
+    ├─── addRuntimeEntity() → atualiza rbx-catalog-registry/catalog/
+    ├─── git push           → rbx-infra + rbx-catalog-registry
     └─── kubectl apply      → aplica o ArgoApp imediatamente (não espera o sync)
 ```
 
@@ -29,9 +35,10 @@ src/
 ├── index.ts               ← Entrypoint CLI: parse de args, dispatch para comandos
 ├── config.ts              ← Carrega ~/.eden.yml com defaults sensatos
 ├── catalog.ts             ← Lê/escreve rbx-infra/catalog/products.yml
+├── runtime-catalog.ts     ← Lê/escreve rbx-catalog-registry/catalog/
 ├── argocd.ts              ← Gera o manifesto ArgoCD Application
 ├── appproject.ts          ← Adiciona namespace ao AppProject rbx-applications
-├── git.ts                 ← Wrapper de git add/commit/push no rbx-infra
+├── git.ts                 ← Wrapper de git add/commit/push
 ├── kubectl.ts             ← Wrapper de kubectl apply para o ArgoApp
 │
 ├── commands/
@@ -61,14 +68,30 @@ Carrega `~/.eden.yml` com `yaml.parse`, aplicando defaults para quem nunca criou
 
 **Por que arquivo em `~/.eden.yml` e não variáveis de ambiente?** Porque os valores mudam raramente (infra_path, github_org) e convém persistir entre sessões sem precisar setar env vars. Variáveis de ambiente ficam para segredos (tokens, kubeconfig sensível).
 
-### `catalog.ts` — Catálogo de produtos
+### `catalog.ts` — Catálogo legado de produtos
 
-O catálogo é o registro canônico de todos os produtos RBX. Vive em `rbx-infra/catalog/products.yml`.
+O catálogo legado de produtos vive em `rbx-infra/catalog/products.yml`.
+Ele preserva metadados de portfólio usados pelo Eden: fase de maturidade,
+namespace, domínios, repo, owner, data de criação e descrição.
 
 - `readCatalog()` — deserializa o YAML e retorna a lista de produtos
 - `addProduct()` — faz upsert: se o produto já existe (por nome), atualiza; se não, acrescenta
 
-O catálogo é a fonte de verdade para `eden list` e para ferramentas externas (rbx-catalog-api, Éden UI futura).
+Esse arquivo continua sendo a fonte de verdade para `eden list`.
+
+### `runtime-catalog.ts` — Catálogo runtime
+
+O catálogo runtime vive em `rbx-catalog-registry/catalog/` e é a fonte consumida
+por `rbx-catalog-api` e `rbx-catalog-console`.
+
+- `addRuntimeEntity()` — converte o produto Eden em uma entidade compatível com
+  `schemas/entity.schema.yaml`
+- Tipos Eden são mapeados para tipos runtime:
+  - `agent` → `catalog/agents/<name>.yaml`
+  - `api` → `catalog/services/<name>.yaml`
+  - `web-static`, `fullstack`, `cli` → `catalog/products/<name>.yaml`
+- `--catalog-domain` permite definir a taxonomia runtime. Se omitido, Eden usa
+  o produto dono do agente ou o nome do produto.
 
 ### `argocd.ts` — ArgoCD Application
 
@@ -87,7 +110,7 @@ O `rbx-applications` é o AppProject ArgoCD que define quais namespaces os produ
 
 ### `git.ts` — Git wrapper
 
-Wraps simples sobre `git add -A`, `git commit -m`, `git push origin main` executados no diretório `rbx-infra`. Usa `spawnSync` (síncrono) porque o fluxo do `new` é sequencial e precisa garantir que o push ocorreu antes de aplicar o ArgoApp.
+Wraps simples sobre `git add -A`, `git commit -m`, `git push origin <branch>` executados no diretório informado. Usa `spawnSync` (síncrono) porque o fluxo do `new` é sequencial e precisa garantir que o push do `rbx-infra` ocorreu antes de aplicar o ArgoApp.
 
 Lança erro se qualquer operação git falhar — o chamador (commands/new.ts) verá o erro via spinner.
 
@@ -165,16 +188,20 @@ O manifesto gerado começa com `status: draft`. O agente só começa a receber r
 4. Registra namespace no AppProject
    └── addDestination() → gitops/projects/rbx-applications.yaml
 
-5. Registra produto no catalog
+5. Registra produto no catálogo legado
    └── addProduct() → catalog/products.yml
 
-6. Commit e push no rbx-infra
-   └── git add -A → git commit → git push origin main
+6. Registra entidade no catálogo runtime
+   └── addRuntimeEntity() → rbx-catalog-registry/catalog/<entity-type>/<name>.yaml
 
-7. Aplica o ArgoApp no cluster
+7. Commit e push nos repositórios alterados
+   └── rbx-infra: git push origin main
+   └── rbx-catalog-registry: git push origin <branch-atual>
+
+8. Aplica o ArgoApp no cluster
    └── kubectl apply -f gitops/app-of-apps/<name>.yml
 
-8. ArgoCD sincroniza apps/prod/<name>/ → cluster ativo em ~30s
+9. ArgoCD sincroniza apps/prod/<name>/ → cluster ativo em ~30s
 ```
 
 ---
@@ -190,7 +217,7 @@ O catálogo rastreia a fase de maturidade de cada produto:
 | `expansion` | Em crescimento ativo, adquirindo usuários ou dependências externas |
 | `institutionalized` | Produto estável, com SLA e processos de manutenção estabelecidos |
 
-Eden cria todos os produtos em fase `seed`. A progressão de fase é manual — editando `catalog/products.yml` diretamente ou via futura interface do Éden.
+Eden cria todos os produtos em fase `seed`. A progressão de fase é manual — editando `catalog/products.yml` diretamente ou via futura interface do Éden. No catálogo runtime, `seed` e `structuring` viram `experimental`; `expansion` e `institutionalized` viram `active`.
 
 ---
 
@@ -217,4 +244,4 @@ Eden tem dois comandos e flags simples. A complexidade de uma dependência de fr
 Porque Eden não tem acesso ao repo do produto no momento da criação — ele gerencia apenas o `rbx-infra`. Os artefatos do produto em si (código fonte, Dockerfile, AGENTS.md) são responsabilidade do desenvolvedor. Eden provê apenas a camada de infra.
 
 **Por que git push síncrono e não async?**
-O fluxo `new` precisa que o push tenha ocorrido antes de aplicar o ArgoApp, para evitar que o ArgoCD sync falhe por não encontrar o path ainda. Operação síncrona é mais simples e mais correta aqui.
+O fluxo `new` precisa que o push do `rbx-infra` tenha ocorrido antes de aplicar o ArgoApp, para evitar que o ArgoCD sync falhe por não encontrar o path ainda. O push do `rbx-catalog-registry` também é síncrono para garantir que a API/console recebam a entidade pela esteira normal de CI/CD.

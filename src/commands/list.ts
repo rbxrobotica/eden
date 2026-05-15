@@ -6,7 +6,7 @@
  *
  * É uma operação somente-leitura — não modifica nenhum arquivo nem acessa o cluster.
  * Útil para ter uma visão rápida do portfólio de produtos RBX sem precisar abrir
- * o rbx-catalog-console.
+ * o catálogo runtime.
  */
 
 import { loadConfig } from "../config.ts";

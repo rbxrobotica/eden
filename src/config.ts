@@ -7,6 +7,7 @@
  *
  * Valores configuráveis:
  *   infra_path       — caminho local do repositório rbx-infra (onde os manifests são escritos)
+ *   catalog_registry_path — caminho local do rbx-catalog-registry (catálogo runtime)
  *   github_org       — organização GitHub usada para montar URLs de repo
  *   default_registry — registry de imagens padrão (ex: ghcr.io/rbxrobotica)
  *   kubeconfig       — caminho do kubeconfig apontando para o cluster RBX
@@ -21,6 +22,7 @@ import { join } from "path";
 
 export interface EdenConfig {
   infra_path: string;
+  catalog_registry_path: string;
   github_org: string;
   default_registry: string;
   kubeconfig: string;
@@ -30,6 +32,7 @@ const CONFIG_PATH = join(homedir(), ".eden.yml");
 
 const DEFAULTS: EdenConfig = {
   infra_path: join(homedir(), "apps/rbx-infra"),
+  catalog_registry_path: join(homedir(), "apps/rbx-catalog-registry"),
   github_org: "rbxrobotica",
   default_registry: "ghcr.io/rbxrobotica",
   kubeconfig: join(homedir(), ".kube/config-rbx"),

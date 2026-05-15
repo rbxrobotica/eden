@@ -2,7 +2,13 @@
 
 **RBX Internal Developer Platform — CLI**
 
-Eden é a CLI que provisiona novos produtos na infraestrutura RBX em um único comando. Ela gera manifests Kubernetes, registra o produto no catálogo, faz commit no `rbx-infra` e aplica o ArgoCD Application — tudo automaticamente.
+**Guia central Eden + Catalog:** `rbx-infra/docs/EDEN-CATALOG-IMPLEMENTATION-GUIDE.md`
+
+Este README cobre o uso local do Eden. O fluxo completo entre Eden,
+`rbx-infra`, `rbx-catalog-registry`, `rbx-catalog-api` e
+`rbx-catalog-console` é definido no guia central.
+
+Eden é a CLI que provisiona novos produtos na infraestrutura RBX em um único comando. Ela gera manifests Kubernetes, registra o produto no catálogo legado e no catálogo runtime, faz commit nos repositórios necessários e aplica o ArgoCD Application — tudo automaticamente.
 
 ---
 
@@ -29,6 +35,7 @@ eden new my-front     --type=web-static --domain=my-front.rbx.ia.br
 eden new my-app       --type=fullstack  --domain=my-app.rbx.ia.br --backend-domain=api.my-app.rbx.ia.br
 eden new my-agent     --type=agent      --product=strategos --role=analyst
 eden new my-tool      --type=cli
+eden new my-api       --type=api        --domain=my-api.rbx.ia.br --catalog-domain=platform
 
 # Dry run — gera os arquivos sem commitar nem aplicar
 eden new my-api --type=api --domain=my-api.rbx.ia.br --dry-run
@@ -36,6 +43,12 @@ eden new my-api --type=api --domain=my-api.rbx.ia.br --dry-run
 # Listar produtos registrados
 eden list
 ```
+
+Flag opcional para qualquer tipo:
+
+| Flag | Descrição |
+|---|---|
+| `--catalog-domain` | Domínio/taxonomia usado no `rbx-catalog-registry`. Se omitido, Eden usa o produto dono do agente ou o nome do produto. |
 
 ---
 
@@ -99,14 +112,17 @@ O manifesto começa com `status: draft`. O agente não recebe requisições até
 4. AppProject — registra o namespace
    └── rbx-infra/gitops/projects/rbx-applications.yaml
        │
-5. Catálogo — registra o produto
+5. Catálogo legado — registra metadados de portfólio
    └── rbx-infra/catalog/products.yml
        │
-6. git add + commit + push → rbx-infra/main
+6. Catálogo runtime — registra entidade para API/console
+   └── rbx-catalog-registry/catalog/<entity-type>/<name>.yaml
        │
-7. kubectl apply → ArgoApp aplicado imediatamente no cluster
+7. git add + commit + push → rbx-infra e rbx-catalog-registry
        │
-8. ArgoCD sincroniza apps/prod/<name>/ → produto ativo em ~30s
+8. kubectl apply → ArgoApp aplicado imediatamente no cluster
+       │
+9. ArgoCD sincroniza apps/prod/<name>/ → produto ativo em ~30s
 ```
 
 ---
@@ -118,6 +134,7 @@ Eden lê `~/.eden.yml`. Se o arquivo não existir, usa defaults:
 ```yaml
 # ~/.eden.yml
 infra_path: ~/apps/rbx-infra          # caminho local do repositório rbx-infra
+catalog_registry_path: ~/apps/rbx-catalog-registry # catálogo runtime consumido por API/console
 github_org: rbxrobotica               # organização GitHub para URLs de repo
 default_registry: ghcr.io/rbxrobotica # registry padrão para imagens Docker
 kubeconfig: ~/.kube/config-rbx        # kubeconfig do cluster RBX
@@ -152,8 +169,9 @@ Todo produto criado pelo Eden começa em fase `seed`.
 |---|---|
 | [rbx-infra](https://github.com/rbxrobotica/rbx-infra) | Repositório GitOps onde Eden escreve todos os manifests |
 | [rbx-harness](https://github.com/rbxrobotica/rbx-harness) | Define o schema do manifest.yaml gerado para agentes |
-| [rbx-catalog-api](https://github.com/rbxrobotica/rbx-catalog-api) | Consome o catalog/products.yml que Eden mantém |
-| [rbx-catalog-console](https://github.com/rbxrobotica/rbx-catalog-console) | UI do catálogo que exibe os produtos registrados |
+| [rbx-catalog-registry](https://github.com/rbxrobotica/rbx-catalog-registry) | Catálogo runtime onde Eden registra entidades para API/console |
+| [rbx-catalog-api](https://github.com/rbxrobotica/rbx-catalog-api) | Serve as entidades do rbx-catalog-registry |
+| [rbx-catalog-console](https://github.com/rbxrobotica/rbx-catalog-console) | UI que navega o catálogo servido pela API |
 
 ---
 
