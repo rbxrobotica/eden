@@ -228,6 +228,13 @@ Eden e rbx-harness são complementares:
 - **rbx-harness** define *o que é um agente RBX* (schema do manifesto, protocolo Thalamus, loop de execução)
 - **Eden** define *como você cria e opera um agente RBX* (scaffolding, provisionamento K8s, registro no catalog)
 
+> Nota (2026-05-16): "protocolo Thalamus" refere-se ao contrato agente-frente
+> da Thalamus, a **camada de controle semântico para tráfego de IA** (definição
+> canônica em `thalamus-core`, ADR-0001). Thalamus decide (pre-call) e valida
+> (post-call) chamadas mediadas por IA; o transporte é o data plane
+> substituível abaixo dela (Agentgateway/LiteLLM), não a Thalamus. Não é um
+> gateway nem um proxy.
+
 Quando `eden new --type=agent` é executado, o Eden materializa o contrato do rbx-harness como arquivos no repositório do agente. O manifesto gerado é o ponto de partida; cabe ao desenvolvedor do agente preenchê-lo com as capabilities e limitations reais antes de ativar.
 
 ---
