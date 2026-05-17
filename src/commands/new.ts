@@ -34,6 +34,7 @@ import { scaffoldApi } from "../scaffolders/api.ts";
 import { scaffoldWebStatic } from "../scaffolders/web-static.ts";
 import { scaffoldFullstack } from "../scaffolders/fullstack.ts";
 import { scaffoldAgent } from "../scaffolders/agent.ts";
+import { seedProductMemory } from "../memory.ts";
 
 interface NewArgs {
   name?: string;
@@ -102,6 +103,8 @@ export async function commandNew(args: NewArgs): Promise<void> {
       });
       commitAndPushIfChanged(config.infra_path, `feat(${name}): register cli product via Eden\n\nCo-Authored-By: Eden CLI <noreply@rbx.ia.br>`, "main");
       commitAndPushIfChanged(config.catalog_registry_path, `feat(${name}): register runtime catalog entity via Eden\n\nCo-Authored-By: Eden CLI <noreply@rbx.ia.br>`);
+
+      trySeedMemory(config.s3_memory_bucket, name, config.github_org);
     }
 
     p.outro(`Product "${name}" registered in catalog (CLI — no k8s deployment).`);
@@ -233,6 +236,8 @@ export async function commandNew(args: NewArgs): Promise<void> {
     s3.start("Applying ArgoCD Application...");
     applyArgoApp(config.infra_path, name, config.kubeconfig);
     s3.stop("ArgoCD Application created.");
+
+    trySeedMemory(config.s3_memory_bucket, name, config.github_org);
   }
 
   p.outro(`Product "${name}" is live. ArgoCD will sync in ~30s.`);
@@ -243,4 +248,12 @@ function commitAndPushIfChanged(repoPath: string, message: string, branch?: stri
   if (!gitHasChanges(repoPath)) return;
   gitCommit(repoPath, message);
   gitPush(repoPath, branch);
+}
+
+function trySeedMemory(bucket: string, productName: string, githubOrg: string): void {
+  const s = p.spinner();
+  s.start("Seeding initial product memory...");
+  seedProductMemory(bucket, productName, `@${githubOrg}`, githubOrg)
+    .then((key) => s.stop(`Memory seeded at s3://${bucket}/${key}`))
+    .catch(() => s.stop("Memory seeding skipped (S3 not configured)."));
 }

@@ -26,6 +26,7 @@ export interface EdenConfig {
   github_org: string;
   default_registry: string;
   kubeconfig: string;
+  s3_memory_bucket: string;
 }
 
 const CONFIG_PATH = join(homedir(), ".eden.yml");
@@ -36,6 +37,7 @@ const DEFAULTS: EdenConfig = {
   github_org: "rbxrobotica",
   default_registry: "ghcr.io/rbxrobotica",
   kubeconfig: join(homedir(), ".kube/config-rbx"),
+  s3_memory_bucket: "rbx-memory",
 };
 
 /**
