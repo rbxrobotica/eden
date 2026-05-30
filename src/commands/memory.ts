@@ -9,18 +9,27 @@ import {
   type MemoryFrontmatter,
   type MemoryStatus,
   type RetentionClass,
+  type MemoryEntry,
   DOMAINS,
   ENTITY_TYPES,
   STATUSES,
   RETENTION_CLASSES,
   getS3Client,
+  nextMemoryId as s3NextMemoryId,
+  writeMemory as s3WriteMemory,
+  readMemory as s3ReadMemory,
+  listMemories as s3ListMemories,
+  findMemoryById as s3FindMemoryById,
+  seedProductMemory as s3SeedProductMemory,
+} from "../memory.ts";
+import {
   nextMemoryId,
   writeMemory,
   readMemory,
   listMemories,
   findMemoryById,
   seedProductMemory,
-} from "../memory.ts";
+} from "../memory-client.ts";
 import { loadConfig } from "../config.ts";
 
 interface MemoryArgs {
@@ -38,6 +47,49 @@ interface MemoryArgs {
   prefix?: string;
   id?: string;
   "dry-run"?: boolean;
+}
+
+function useDelegation(): boolean {
+  return !!process.env.RBX_MEMORY_URL;
+}
+
+async function delegatedNextMemoryId(bucket: string, domain: MemoryDomain): Promise<string> {
+  return useDelegation() ? nextMemoryId(domain) : s3NextMemoryId(bucket, domain);
+}
+
+async function delegatedWriteMemory(
+  bucket: string,
+  fm: MemoryFrontmatter,
+  body: string,
+  product?: string,
+): Promise<string> {
+  return useDelegation() ? writeMemory(fm, body, product) : s3WriteMemory(bucket, fm, body, product);
+}
+
+async function delegatedReadMemory(
+  bucket: string,
+  key: string,
+): Promise<{ frontmatter: MemoryFrontmatter; body: string } | null> {
+  return useDelegation() ? readMemory(key) : s3ReadMemory(bucket, key);
+}
+
+async function delegatedListMemories(bucket: string, prefix: string): Promise<MemoryEntry[]> {
+  return useDelegation() ? listMemories(prefix) : s3ListMemories(bucket, prefix);
+}
+
+async function delegatedFindMemoryById(bucket: string, id: string): Promise<string | null> {
+  return useDelegation() ? findMemoryById(id) : s3FindMemoryById(bucket, id);
+}
+
+async function delegatedSeedProductMemory(
+  bucket: string,
+  productName: string,
+  author: string,
+  owner: string,
+): Promise<string> {
+  return useDelegation()
+    ? seedProductMemory(productName, author, owner)
+    : s3SeedProductMemory(bucket, productName, author, owner);
 }
 
 export async function commandMemory(args: MemoryArgs): Promise<void> {
@@ -174,7 +226,7 @@ async function commandWrite(args: MemoryArgs): Promise<void> {
 
   const s = p.spinner();
   s.start("Generating memory ID...");
-  const id = await nextMemoryId(bucket, domain);
+  const id = await delegatedNextMemoryId(bucket, domain);
   s.stop(`ID: ${id}`);
 
   const now = new Date().toISOString();
@@ -201,7 +253,7 @@ async function commandWrite(args: MemoryArgs): Promise<void> {
 
   s.start("Writing to S3...");
   try {
-    const key = await writeMemory(bucket, fm, body, product);
+    const key = await delegatedWriteMemory(bucket, fm, body, product);
     s.stop(`Written to s3://${bucket}/${key}`);
     p.outro(`Memory ${id} created.`);
   } catch (err) {
@@ -226,7 +278,7 @@ async function commandRead(args: MemoryArgs): Promise<void> {
   try {
     let key = input;
     if (!input.includes("/")) {
-      const found = await findMemoryById(bucket, input);
+      const found = await delegatedFindMemoryById(bucket, input);
       if (!found) {
         s.stop("Not found.");
         p.cancel(`Memory ${input} not found in bucket ${bucket}.`);
@@ -235,7 +287,7 @@ async function commandRead(args: MemoryArgs): Promise<void> {
       key = found;
     }
 
-    const result = await readMemory(bucket, key);
+    const result = await delegatedReadMemory(bucket, key);
     s.stop("Done.");
 
     if (!result) {
@@ -271,7 +323,7 @@ async function commandList(args: MemoryArgs): Promise<void> {
   s.start(`Listing s3://${bucket}/${prefix}...`);
 
   try {
-    const entries = await listMemories(bucket, prefix);
+    const entries = await delegatedListMemories(bucket, prefix);
     s.stop(`Found ${entries.length} memories.`);
 
     if (entries.length === 0) {
@@ -311,7 +363,7 @@ async function commandSeed(args: MemoryArgs): Promise<void> {
   s.start(`Seeding memory for ${productName}...`);
 
   try {
-    const key = await seedProductMemory(
+    const key = await delegatedSeedProductMemory(
       bucket,
       productName,
       "@operator",
