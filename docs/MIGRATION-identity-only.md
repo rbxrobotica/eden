@@ -17,16 +17,16 @@ Eden IDP is becoming **identity-only** (auth, tokens, "who"). All memory operati
 The CLI now contains a **delegation seam** controlled by the environment variable `RBX_MEMORY_URL`:
 
 - **`RBX_MEMORY_URL` is set** (e.g. `http://rbx-memory.internal`)  
-  `eden memory` commands route through the delegation client (`src/memory-client.ts`) to the `rbx-memory` service.
+  `eden memory` commands route through the delegation client (`src/memory-client.ts`) to the live `rbx-memory` `/v1` API. Write operations also require `RBX_MEMORY_TOKEN` and call the bearer-token protected endpoints.
 
 - **`RBX_MEMORY_URL` is unset** (default today)  
   `eden memory` commands continue to use the existing direct-S3 path. Behavior is **identical** to today.
 
 ## Timeline
 
-1. **This increment** — Delegation client and config switch are added. Direct-S3 path remains the default and is fully functional.
-2. **Once `rbx-memory` is live** — Set `RBX_MEMORY_URL` in Eden environments to cut over to delegation.
-3. **After cutover is verified** — The direct-S3 path in Eden will be removed. Eden becomes identity-only.
+1. **Increment 1** — Delegation client and config switch were added. Direct-S3 path remained the default and fully functional.
+2. **This increment** — The delegation client is aligned to the real `rbx-memory` `/v1` contract: `POST /v1/memory`, `GET /v1/memory/{id}`, `GET /v1/memory?domain=&entity_type=&status=`, and `POST /v1/memory/{id}/supersede`.
+3. **Final step, after deployment validation** — Once `rbx-memory` is deployed and validated in an environment, remove Eden's direct-S3 path. That removal is out of scope here; no live S3 or live HTTP calls are required for this increment.
 
 ## References
 

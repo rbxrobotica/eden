@@ -23,10 +23,9 @@ import {
   seedProductMemory as s3SeedProductMemory,
 } from "../memory.ts";
 import {
-  nextMemoryId,
-  writeMemory,
+  createMemory,
   readMemory,
-  listMemories,
+  listMemoryEntries,
   findMemoryById,
   seedProductMemory,
 } from "../memory-client.ts";
@@ -54,7 +53,10 @@ function useDelegation(): boolean {
 }
 
 async function delegatedNextMemoryId(bucket: string, domain: MemoryDomain): Promise<string> {
-  return useDelegation() ? nextMemoryId(domain) : s3NextMemoryId(bucket, domain);
+  if (useDelegation()) {
+    throw new Error("rbx-memory allocates memory ids during POST /v1/memory");
+  }
+  return s3NextMemoryId(bucket, domain);
 }
 
 async function delegatedWriteMemory(
@@ -62,8 +64,12 @@ async function delegatedWriteMemory(
   fm: MemoryFrontmatter,
   body: string,
   product?: string,
-): Promise<string> {
-  return useDelegation() ? writeMemory(fm, body, product) : s3WriteMemory(bucket, fm, body, product);
+): Promise<{ key: string; id: string }> {
+  if (useDelegation()) {
+    return createMemory(fm, body, product);
+  }
+  const key = await s3WriteMemory(bucket, fm, body, product);
+  return { key, id: fm.id };
 }
 
 async function delegatedReadMemory(
@@ -73,8 +79,18 @@ async function delegatedReadMemory(
   return useDelegation() ? readMemory(key) : s3ReadMemory(bucket, key);
 }
 
-async function delegatedListMemories(bucket: string, prefix: string): Promise<MemoryEntry[]> {
-  return useDelegation() ? listMemories(prefix) : s3ListMemories(bucket, prefix);
+async function delegatedListMemories(
+  bucket: string,
+  prefix: string,
+  filters?: {
+    domain?: MemoryDomain;
+    entity_type?: MemoryEntityType;
+    status?: MemoryStatus;
+  },
+): Promise<MemoryEntry[]> {
+  return useDelegation()
+    ? listMemoryEntries(prefix, filters)
+    : s3ListMemories(bucket, prefix);
 }
 
 async function delegatedFindMemoryById(bucket: string, id: string): Promise<string | null> {
@@ -154,10 +170,11 @@ async function commandWrite(args: MemoryArgs): Promise<void> {
 
   let product: string | undefined;
   if (domain === "product") {
-    product =
+    const productInput =
       args.product ??
       (await p.text({ message: "Product name", placeholder: "e.g. robson" }));
-    if (p.isCancel(product)) return p.cancel("Aborted");
+    if (p.isCancel(productInput)) return p.cancel("Aborted");
+    product = productInput;
   }
 
   const author =
@@ -219,15 +236,20 @@ async function commandWrite(args: MemoryArgs): Promise<void> {
       message: "Body (markdown)",
       placeholder: "Write the memory content...",
       multiline: true,
-    });
+    } as Parameters<typeof p.text>[0] & { multiline: true });
     if (p.isCancel(inline)) return p.cancel("Aborted");
     body = inline;
   }
 
   const s = p.spinner();
-  s.start("Generating memory ID...");
-  const id = await delegatedNextMemoryId(bucket, domain);
-  s.stop(`ID: ${id}`);
+  let id: string;
+  if (useDelegation()) {
+    id = "mem-0000-00000";
+  } else {
+    s.start("Generating memory ID...");
+    id = await delegatedNextMemoryId(bucket, domain);
+    s.stop(`ID: ${id}`);
+  }
 
   const now = new Date().toISOString();
   const fm: MemoryFrontmatter = {
@@ -247,15 +269,19 @@ async function commandWrite(args: MemoryArgs): Promise<void> {
   if (args["dry-run"]) {
     const { serializeMemory } = await import("../memory.ts");
     console.log(serializeMemory(fm, body));
-    p.outro("Dry run — nothing written to S3.");
+    p.outro("Dry run — nothing written.");
     return;
   }
 
-  s.start("Writing to S3...");
+  s.start(useDelegation() ? "Writing to rbx-memory..." : "Writing to S3...");
   try {
-    const key = await delegatedWriteMemory(bucket, fm, body, product);
-    s.stop(`Written to s3://${bucket}/${key}`);
-    p.outro(`Memory ${id} created.`);
+    const created = await delegatedWriteMemory(bucket, fm, body, product);
+    s.stop(
+      useDelegation()
+        ? `Written to rbx-memory: ${created.key}`
+        : `Written to s3://${bucket}/${created.key}`,
+    );
+    p.outro(`Memory ${created.id} created.`);
   } catch (err) {
     s.stop("Write failed.");
     p.cancel(String(err));
@@ -318,12 +344,17 @@ async function commandList(args: MemoryArgs): Promise<void> {
       prefix = `${domain}/`;
     }
   }
+  const domain = (args.domain ?? domainFromPrefix(prefix) ?? "product") as MemoryDomain;
 
   const s = p.spinner();
   s.start(`Listing s3://${bucket}/${prefix}...`);
 
   try {
-    const entries = await delegatedListMemories(bucket, prefix);
+    const entries = await delegatedListMemories(bucket, prefix, {
+      domain,
+      entity_type: args["entity-type"] as MemoryEntityType | undefined,
+      status: args.status as MemoryStatus | undefined,
+    });
     s.stop(`Found ${entries.length} memories.`);
 
     if (entries.length === 0) {
@@ -369,12 +400,21 @@ async function commandSeed(args: MemoryArgs): Promise<void> {
       "@operator",
       "eden",
     );
-    s.stop(`Written to s3://${bucket}/${key}`);
+    s.stop(
+      useDelegation()
+        ? `Written to rbx-memory: ${key}`
+        : `Written to s3://${bucket}/${key}`,
+    );
     p.outro(`Memory seeded for ${productName}.`);
   } catch (err) {
     s.stop("Seed failed.");
     p.cancel(String(err));
   }
+}
+
+function domainFromPrefix(prefix: string): MemoryDomain | undefined {
+  const first = prefix.split("/")[0] as MemoryDomain | undefined;
+  return first && DOMAINS.includes(first) ? first : undefined;
 }
 
 function openEditor(): string {

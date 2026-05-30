@@ -234,7 +234,7 @@ export function validateFrontmatter(fm: Partial<MemoryFrontmatter>): string[] {
 // --- Serialization ---
 
 export function serializeMemory(fm: MemoryFrontmatter, body: string): string {
-  const frontmatterYaml = stringify(fm as Record<string, unknown>);
+  const frontmatterYaml = stringify(fm as unknown as Record<string, unknown>);
   return `---\n${frontmatterYaml}---\n\n${body.trim()}\n`;
 }
 
