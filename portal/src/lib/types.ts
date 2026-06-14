@@ -88,6 +88,9 @@ export interface MissionSummary {
 export interface MissionDetail extends MissionSummary {
   contract: Record<string, unknown>;
   gates_state: "open" | "approved" | "rejected";
+  executor?: string;
+  input_tokens?: number;
+  output_tokens?: number;
 }
 
 export interface MissionListResponse {

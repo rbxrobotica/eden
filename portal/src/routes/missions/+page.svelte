@@ -49,6 +49,7 @@
 
 <div class="header">
   <h1>Missions</h1>
+  <a href="/missions/new" class="btn-new">+ New Mission</a>
 </div>
 
 {#if loading}
@@ -96,6 +97,11 @@
 <style>
   .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.2rem; }
   h1 { font-size: 1.4rem; color: #e0e0e8; }
+  .btn-new {
+    padding: 0.45rem 1rem; background: #22d3ee; color: #0a0a0f;
+    border-radius: 6px; font-size: 0.85rem; font-weight: 600;
+  }
+  .btn-new:hover { background: #06b6d4; text-decoration: none; }
   .muted { color: #666; font-size: 0.85rem; }
   .err { color: #f87171; }
   .mono { font-family: monospace; font-size: 0.85rem; }

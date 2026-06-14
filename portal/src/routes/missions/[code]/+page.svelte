@@ -104,6 +104,18 @@
           <dt>Stop reason</dt>
           <dd class="mono warn">{detail.stop_reason}</dd>
         {/if}
+        {#if detail.executor}
+          <dt>Executor</dt>
+          <dd class="mono">{detail.executor}</dd>
+        {/if}
+        {#if detail.input_tokens != null}
+          <dt>Tokens in</dt>
+          <dd class="mono">{detail.input_tokens.toLocaleString()}</dd>
+        {/if}
+        {#if detail.output_tokens != null}
+          <dt>Tokens out</dt>
+          <dd class="mono">{detail.output_tokens.toLocaleString()}</dd>
+        {/if}
       </dl>
     </section>
   </div>

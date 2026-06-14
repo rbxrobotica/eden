@@ -32,3 +32,25 @@ missions.get("/api/missions/:code", async (c) => {
   const code = c.req.param("code");
   return c.json(await maestroGet(`/missions/${code}`));
 });
+
+missions.post("/api/missions/admit", async (c) => {
+  if (!DASHBOARD_KEY) {
+    throw new HTTPException(503, { message: "MAESTRO_DASHBOARD_KEY not configured" });
+  }
+  const body = await c.req.json();
+  const res = await fetch(`${MAESTRO_URL}/api/v1/agent-loop/missions/admit`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${DASHBOARD_KEY}`,
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new HTTPException(res.status as 400 | 401 | 500, {
+      message: (err as { error?: string }).error ?? res.statusText,
+    });
+  }
+  return c.json(await res.json(), 201);
+});
