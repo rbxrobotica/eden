@@ -57,6 +57,7 @@
       <div class="nav-links">
         <a href="/">Products</a>
         <a href="/products/new">New Product</a>
+        <a href="/missions">Missions</a>
         <a href="/memory/new">Write Memory</a>
       </div>
       <button class="logout" onclick={logout}>Logout</button>

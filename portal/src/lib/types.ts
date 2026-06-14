@@ -61,3 +61,36 @@ export const ENTITY_TYPES: MemoryEntityType[] = [
   "postmortem", "playbook", "customer", "deal", "template",
   "agent_reasoning",
 ];
+
+// ── Agent Loop Mission types (Phase 4) ────────────────────────────────────
+
+export type MissionStatus =
+  | "admitted" | "running" | "paused" | "stopped"
+  | "delivered" | "approved" | "rejected" | "completed";
+
+export type LeaseState = "running" | "paused" | "stopped" | "delivered";
+
+export interface MissionSummary {
+  mission_code: string;
+  status: MissionStatus;
+  stop_reason?: string;
+  lease_state?: LeaseState;
+  type: string;
+  repo: string;
+  risk_level: string;
+  objective: string;
+  runner_id?: string;
+  started_at?: string;
+  completed_at?: string;
+  created_at: string;
+}
+
+export interface MissionDetail extends MissionSummary {
+  contract: Record<string, unknown>;
+  gates_state: "open" | "approved" | "rejected";
+}
+
+export interface MissionListResponse {
+  missions: MissionSummary[];
+  next_cursor?: string;
+}

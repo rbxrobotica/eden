@@ -4,6 +4,7 @@ import { authMiddleware } from "./middleware/auth.ts";
 import { errorHandler } from "./middleware/error-handler.ts";
 import { health } from "./routes/health.ts";
 import { memory } from "./routes/memory.ts";
+import { missions } from "./routes/missions.ts";
 import { products } from "./routes/products.ts";
 
 const app = new Hono();
@@ -25,6 +26,7 @@ app.use(
 app.route("/", health);
 app.use("/api/*", authMiddleware);
 app.route("/", memory);
+app.route("/", missions);
 app.route("/", products);
 app.onError(errorHandler);
 
