@@ -43,6 +43,7 @@
     { value: "claude-sonnet", label: "Claude Sonnet" },
     { value: "kimi", label: "Kimi K2.7" },
     { value: "glm", label: "GLM 4.7 (z.ai)" },
+    { value: "codex", label: "Codex o4-mini (OpenAI)" },
   ];
 
   async function submit() {
