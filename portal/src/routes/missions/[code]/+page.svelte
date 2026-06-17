@@ -1,6 +1,6 @@
 <script lang="ts">
   import { apiFetch } from "$lib/api-client";
-  import type { MissionDetail } from "$lib/types";
+  import type { MissionDetail, BoundaryReviewOutcome } from "$lib/types";
   import { page } from "$app/stores";
 
   const code = $derived($page.params.code);
@@ -48,6 +48,20 @@
     open: "⏳ Awaiting approval",
     approved: "✓ Approved",
     rejected: "✗ Rejected",
+  };
+
+  function outcomeColor(o: BoundaryReviewOutcome): string {
+    if (o === "CLEAR")   return "green";
+    if (o === "PROPOSE") return "cyan";
+    if (o === "ESCALATE") return "amber";
+    return "red"; // REFUSE
+  }
+
+  const outcomeLabel: Record<BoundaryReviewOutcome, string> = {
+    CLEAR:    "✓ Clear",
+    PROPOSE:  "~ Propose",
+    ESCALATE: "⚠ Escalate",
+    REFUSE:   "✗ Refuse",
   };
 </script>
 
@@ -138,6 +152,35 @@
     {/if}
   </section>
 
+  {#if detail.boundary_review}
+    {@const br = detail.boundary_review}
+    <section class="card br-card">
+      <h2>Boundary Review</h2>
+      <div class="br-outcome">
+        <span class="badge badge-{outcomeColor(br.outcome)}">{outcomeLabel[br.outcome]}</span>
+        <span class="br-date muted">{fmt(br.created_at)}</span>
+      </div>
+      {#if br.summary}
+        <p class="br-summary">{br.summary}</p>
+      {/if}
+      {#if br.resolution}
+        <div class="br-resolution">
+          <span class="muted">Resolution:</span> {br.resolution}
+          {#if br.resolved_by}
+            <span class="muted"> — {br.resolved_by}</span>
+          {/if}
+          {#if br.resolved_at}
+            <span class="muted"> at {fmt(br.resolved_at)}</span>
+          {/if}
+        </div>
+      {:else if br.outcome === "ESCALATE" || br.outcome === "REFUSE"}
+        <p class="br-pending-resolution warn">
+          Human resolution required before this mission can be approved.
+        </p>
+      {/if}
+    </section>
+  {/if}
+
   {#if actionMsg}
     <p class="action-msg">{actionMsg}</p>
   {/if}
@@ -190,4 +233,11 @@
   .err { color: #f87171; }
   .action-msg { margin-top: 1rem; color: #34d399; font-size: 0.9rem; }
   code { background: #1e1e2e; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.85rem; }
+
+  .br-card { margin-bottom: 1rem; }
+  .br-outcome { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.6rem; }
+  .br-date { font-size: 0.8rem; }
+  .br-summary { color: #c0c0d0; font-size: 0.85rem; line-height: 1.5; margin-bottom: 0.5rem; }
+  .br-resolution { font-size: 0.85rem; color: #c0c0d0; margin-top: 0.4rem; }
+  .br-pending-resolution { font-size: 0.85rem; margin-top: 0.4rem; }
 </style>

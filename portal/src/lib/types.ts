@@ -85,12 +85,26 @@ export interface MissionSummary {
   created_at: string;
 }
 
+export type BoundaryReviewOutcome = "CLEAR" | "PROPOSE" | "ESCALATE" | "REFUSE";
+
+export interface BoundaryReviewArtifact {
+  id: string;
+  kind: "boundary-review";
+  summary: string;
+  outcome: BoundaryReviewOutcome;
+  resolution?: string;
+  resolved_by?: string;
+  resolved_at?: string;
+  created_at: string;
+}
+
 export interface MissionDetail extends MissionSummary {
   contract: Record<string, unknown>;
   gates_state: "open" | "approved" | "rejected";
   executor?: string;
   input_tokens?: number;
   output_tokens?: number;
+  boundary_review?: BoundaryReviewArtifact;
 }
 
 export interface MissionListResponse {
