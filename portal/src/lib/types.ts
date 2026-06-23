@@ -104,6 +104,8 @@ export interface MissionDetail extends MissionSummary {
   executor?: string;
   input_tokens?: number;
   output_tokens?: number;
+  verify_status?: string; // ADR-0019: passed | failed | not_run
+  verify_exit_code?: number; // ADR-0019: verify_command exit code
   boundary_review?: BoundaryReviewArtifact;
 }
 

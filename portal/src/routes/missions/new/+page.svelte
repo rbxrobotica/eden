@@ -22,10 +22,15 @@
   let executor = $state("claude-haiku");
   let max_runtime = $state("PT30M");
   let max_attempts = $state(3);
-  let success_criteria = $state("");
+  let done_criteria = $state("");
+  let verify_command = $state("");
 
   let submitting = $state(false);
   let error = $state("");
+
+  // ADR-0019: verify_command is required for code-producing loop types.
+  const CODE_LOOPS = ["bugfix-loop", "feature-loop", "refactor-loop", "dependency-upgrade-loop"];
+  const isCodeLoop = $derived(CODE_LOOPS.includes(type));
 
   const MISSION_TYPES = [
     "bugfix-loop",
@@ -48,16 +53,26 @@
 
   async function submit() {
     error = "";
-    if (!title || !repo || !objective || !success_criteria) {
-      error = "Title, repo, objective, and success criteria are required.";
+    if (!title || !repo || !objective || !done_criteria) {
+      error = "Title, repo, objective, and done criteria are required.";
+      return;
+    }
+    if (isCodeLoop && !verify_command) {
+      error = "Verify command is required for code-producing loop types (ADR-0019).";
       return;
     }
     submitting = true;
 
-    const criteria = success_criteria
+    const criteria = done_criteria
       .split("\n")
       .map((s) => s.trim())
       .filter(Boolean);
+
+    // Code-producing loops must declare patch + test_result artifacts and a
+    // verify_command (ADR-0019 / schema v1.0.0 allOf conditionals).
+    const artifacts = isCodeLoop
+      ? ["log", "patch", "test_result", "summary"]
+      : ["log", "summary"];
 
     const contract = {
       type,
@@ -67,14 +82,15 @@
       base_branch,
       allowed_paths: ["**"],
       forbidden_paths: [],
-      success_criteria: criteria,
+      done_criteria: criteria,
+      ...(verify_command ? { verify_command } : {}),
       stop_conditions: CANONICAL_STOP_CONDITIONS,
       max_attempts,
       max_runtime,
       max_cost: "1000000 tokens",
       required_checks: ["ci"],
       human_gates: ["merge"],
-      artifacts: ["log", "summary"],
+      artifacts,
       risk_level,
       owner: "operator",
       status: "designed",
@@ -149,10 +165,18 @@
   </div>
 
   <div class="field">
-    <label for="success_criteria">Success criteria <span class="hint">(one per line)</span></label>
-    <textarea id="success_criteria" bind:value={success_criteria} rows="4"
+    <label for="done_criteria">Done criteria <span class="hint">(one per line, machine-checkable)</span></label>
+    <textarea id="done_criteria" bind:value={done_criteria} rows="4"
       placeholder="All tests pass&#10;CI green&#10;PR opened against main"></textarea>
   </div>
+
+  {#if isCodeLoop}
+    <div class="field">
+      <label for="verify_command">Verify command <span class="hint">(run in the worktree to prove done; required)</span></label>
+      <input id="verify_command" bind:value={verify_command}
+        placeholder="go test ./...   |   bun test   |   cargo test" />
+    </div>
+  {/if}
 
   <div class="row">
     <div class="field">

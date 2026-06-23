@@ -63,6 +63,21 @@
     ESCALATE: "⚠ Escalate",
     REFUSE:   "✗ Refuse",
   };
+
+  // ADR-0019: done_criteria + verify_command are carried in the contract map;
+  // verify_status/verify_exit_code are top-level MissionDetail fields.
+  const doneCriteria = $derived(
+    (detail?.contract?.done_criteria as string[] | undefined) ?? [],
+  );
+  const verifyCommand = $derived(
+    (detail?.contract?.verify_command as string | undefined) ?? "",
+  );
+
+  function verifyColor(s?: string): string {
+    if (s === "passed") return "green";
+    if (s === "failed") return "red";
+    return "muted"; // not_run
+  }
 </script>
 
 <div class="back"><a href="/missions">← Missions</a></div>
@@ -100,6 +115,20 @@
           <dt>Max runtime</dt>
           <dd class="mono">{detail.contract.max_runtime}</dd>
         {/if}
+        {#if doneCriteria.length}
+          <dt>Done criteria</dt>
+          <dd>
+            <ul class="criteria">
+              {#each doneCriteria as c}
+                <li>{c}</li>
+              {/each}
+            </ul>
+          </dd>
+        {/if}
+        {#if verifyCommand}
+          <dt>Verify command</dt>
+          <dd><code class="block">{verifyCommand}</code></dd>
+        {/if}
       </dl>
     </section>
 
@@ -129,6 +158,15 @@
         {#if detail.output_tokens != null}
           <dt>Tokens out</dt>
           <dd class="mono">{detail.output_tokens.toLocaleString()}</dd>
+        {/if}
+        {#if detail.verify_status}
+          <dt>Verify</dt>
+          <dd>
+            <span class="badge badge-{verifyColor(detail.verify_status)}">{detail.verify_status}</span>
+            {#if detail.verify_exit_code != null}
+              <span class="muted mono vexit">exit {detail.verify_exit_code}</span>
+            {/if}
+          </dd>
         {/if}
       </dl>
     </section>
@@ -233,6 +271,10 @@
   .err { color: #f87171; }
   .action-msg { margin-top: 1rem; color: #34d399; font-size: 0.9rem; }
   code { background: #1e1e2e; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.85rem; }
+  code.block { display: inline-block; background: #1e1e2e; padding: 0.4rem 0.6rem; border-radius: 4px; word-break: break-all; }
+  .criteria { margin: 0; padding-left: 1.1rem; }
+  .criteria li { color: #c0c0d0; line-height: 1.5; }
+  .vexit { margin-left: 0.5rem; font-size: 0.8rem; }
 
   .br-card { margin-bottom: 1rem; }
   .br-outcome { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.6rem; }
