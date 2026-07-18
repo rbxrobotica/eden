@@ -1,4 +1,9 @@
 node_modules/
 dist/
 eden
+eden-api
 *.js.map
+
+# local tool config / credentials
+portal/.npmrc
+portal/.vscode/
