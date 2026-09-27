@@ -19,7 +19,7 @@
   let base_branch = $state("main");
   let objective = $state("");
   let risk_level = $state("low");
-  let executor = $state("claude-haiku");
+  let executor = $state("glm");
   let max_runtime = $state("PT30M");
   let max_attempts = $state(3);
   let done_criteria = $state("");
@@ -43,13 +43,25 @@
     "evaluation-loop",
   ];
 
+  // GLM is the Corbetti workbench default (operator decision 2026-08-07):
+  // cheap, mechanical-volume workhorse that reports token usage. Sonnet/Haiku
+  // stay available for complex or fast-and-cheap tasks respectively.
   const EXECUTORS = [
-    { value: "claude-haiku", label: "Claude Haiku (default)" },
+    { value: "glm", label: "GLM 5.2 (z.ai, recommended)" },
     { value: "claude-sonnet", label: "Claude Sonnet" },
+    { value: "claude-haiku", label: "Claude Haiku" },
     { value: "kimi", label: "Kimi K2.7" },
-    { value: "glm", label: "GLM 4.7 (z.ai)" },
     { value: "codex", label: "Codex o4-mini (OpenAI)" },
   ];
+
+  const EXECUTOR_HINTS: Record<string, string> = {
+    glm: "Default for the Corbetti loop. Mechanical volume: refactors, tests, docs, boilerplate. Low cost, reports token usage.",
+    "claude-sonnet": "Complex tasks, architecture, multi-step reasoning.",
+    "claude-haiku": "Fast and cheap for simple, well-scoped tasks.",
+    kimi: "General-purpose. Does not report token usage.",
+    codex: "General-purpose (OpenAI). Does not report token usage.",
+  };
+  const executorHint = $derived(EXECUTOR_HINTS[executor] ?? "");
 
   async function submit() {
     error = "";
@@ -135,6 +147,7 @@
           <option value={ex.value}>{ex.label}</option>
         {/each}
       </select>
+      {#if executorHint}<span class="hint">{executorHint}</span>{/if}
     </div>
     <div class="field">
       <label for="risk_level">Risk level</label>
