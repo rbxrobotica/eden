@@ -6,6 +6,7 @@
     "eden": "./src/index.ts"
   },
   "scripts": {
+    "test": "bun test",
     "dev": "bun run src/index.ts",
     "build": "bun build src/index.ts --compile --outfile eden",
     "dev:api": "bun run src/api/server.ts",

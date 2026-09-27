@@ -17,7 +17,7 @@ Eden IDP is becoming **identity-only** (auth, tokens, "who"). All memory operati
 The CLI now contains a **delegation seam** controlled by the environment variable `RBX_MEMORY_URL`:
 
 - **`RBX_MEMORY_URL` is set** (e.g. `http://rbx-memory.internal`)  
-  `eden memory` commands route through the delegation client (`src/memory-client.ts`) to the live `rbx-memory` `/v1` API. Write operations also require `RBX_MEMORY_TOKEN` and call the bearer-token protected endpoints.
+  `eden memory` commands route through the delegation client (`src/memory-client.ts`) to the live `rbx-memory` `/v1` API. All delegated read, list, and write operations require `RBX_MEMORY_TOKEN` and call the bearer-token protected endpoints. Configure the token for existing read-only CLI consumers before promoting a memory service release that requires authenticated reads. The token authenticates the service caller; per-consumer authorization scopes remain a separate migration.
 
 - **`RBX_MEMORY_URL` is unset** (default today)  
   `eden memory` commands continue to use the existing direct-S3 path. Behavior is **identical** to today.

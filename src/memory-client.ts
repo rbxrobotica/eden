@@ -41,11 +41,11 @@ function getBaseUrl(): string {
   return url.replace(/\/$/, "");
 }
 
-function getWriteHeaders(): HeadersInit {
+function getMemoryHeaders(): HeadersInit {
   const token = process.env.RBX_MEMORY_TOKEN;
   if (!token) {
     throw new Error(
-      "RBX_MEMORY_TOKEN is not set. Configure it to call rbx-memory write endpoints.",
+      "RBX_MEMORY_TOKEN is not set. Configure it to call rbx-memory endpoints.",
     );
   }
   return {
@@ -136,7 +136,7 @@ export async function createMemory(
   const res = await ok(
     await fetch(`${getBaseUrl()}/v1/memory`, {
       method: "POST",
-      headers: getWriteHeaders(),
+      headers: getMemoryHeaders(),
       body: JSON.stringify(toCreateRequest(fm, body, product)),
     }),
   );
@@ -157,7 +157,9 @@ export async function writeMemory(
 }
 
 export async function readMemory(keyOrId: string): Promise<MemoryResponse | null> {
-  const res = await fetch(`${getBaseUrl()}/v1/memory/${encodeURIComponent(keyOrId)}`);
+  const res = await fetch(`${getBaseUrl()}/v1/memory/${encodeURIComponent(keyOrId)}`, {
+    headers: getMemoryHeaders(),
+  });
   if (res.status === 404) return null;
   await ok(res);
   return (await res.json()) as MemoryResponse;
@@ -175,7 +177,9 @@ export async function listMemories(filters?: {
 
   const query = params.toString();
   const res = await ok(
-    await fetch(`${getBaseUrl()}/v1/memory${query ? `?${query}` : ""}`),
+    await fetch(`${getBaseUrl()}/v1/memory${query ? `?${query}` : ""}`, {
+      headers: getMemoryHeaders(),
+    }),
   );
   return (await res.json()) as MemoryResponse[];
 }
@@ -205,7 +209,7 @@ export async function supersedeMemory(idOrKey: string): Promise<CreateMemoryResu
       `${getBaseUrl()}/v1/memory/${encodeURIComponent(idOrKey)}/supersede`,
       {
         method: "POST",
-        headers: getWriteHeaders(),
+        headers: getMemoryHeaders(),
       },
     ),
   );
